@@ -88,15 +88,6 @@ def main() :
         elif data in ["up", "down", "left", "right"] : 
             move = data
             moves_queue.add((unique_id, move))
-        elif data == "z" :
-            print(f"{name}: {message.decode()}")  # Server prints the message
-            broadcast(message, client)
-        elif data == "x" :
-            print(f"{name}: {message.decode()}")  # Server prints the message
-            broadcast(message, client)            
-        elif data == "c" : 
-            print(f"{name}: {message.decode()}")  # Server prints the message
-            broadcast(message, client)
         else :
             print("Invalid data received from client:", data)
             
