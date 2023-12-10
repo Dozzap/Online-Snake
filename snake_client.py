@@ -2,73 +2,85 @@ import socket
 import pygame
 import sys
 import time
-
+import rsa
 
 # Initialize Pygame
 pygame.init()
 
-# Game window dimensions
+# Game window dimensions and other constants
 WIDTH, HEIGHT = 500, 500
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+CELL_SIZE = 25
+GRID_COLOR = (255, 255, 255)
+SNAKE_COLOR = (255, 0, 0)
+SNACK_COLOR = (0, 255, 0)
+SERVER_IP = 'localhost'
+SERVER_PORT = 5555
+BUFFER_SIZE = 500
 
-# Define colors for the snake and snacks
-SNAKE_COLOR = (255, 0, 0)  # Red color for the snake
-SNACK_COLOR = (0, 255, 0)  # Green color for the snacks
-CELL_SIZE = 25  # Size of each cell in the grid
-GRID_COLOR = (255, 255, 255)  # Color of the grid lines
-# Server details
-SERVER_IP = 'localhost'  # Replace with your server's IP
-SERVER_PORT = 5555       # Replace with your server's port
-BUFFER_SIZE = 500        # Size of the buffer for receiving data
+predefined_messages = {
+    "Z": "Player says: Congratulations!",
+    "X": "Player says: It works!",
+    "C": "Player says: Ready?"
+}
 
-# Connect to the server
+# Connect to the server and setup RSA
 def connect_to_server():
     try:
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((SERVER_IP, SERVER_PORT))
-        return client_socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((SERVER_IP, SERVER_PORT))
+
+        # Generate RSA key pair for the client
+        client_public_key, client_private_key = rsa.newkeys(512)
+
+        # Send the client's public key to the server
+        sock.send(client_public_key.save_pkcs1(format='PEM'))
+
+        # Receive the server's public key and load it
+        server_public_key_data = sock.recv(2048)
+        server_public_key = rsa.PublicKey.load_pkcs1(server_public_key_data, format='PEM')
+        
+        return sock, client_private_key, server_public_key
     except socket.error as e:
         print(f"Error connecting to server: {e}")
         sys.exit()
 
-# Send command to the server
-def send_command(client_socket, command):
+# Encrypt and send message to the server
+def send_command(sock, message, server_public_key):
     try:
-        client_socket.send(command.encode())
+        encrypted_message = rsa.encrypt(message.encode(), server_public_key)
+        print("Debug - Encrypted Message:",message, encrypted_message)  # Debug print
+        sock.send(encrypted_message)
     except socket.error as e:
         print(f"Error sending command: {e}")
 
-# Receive game state from the server
-def receive_game_state(client_socket):
-    print("Attempting to receive game state")
+# Receive and decode game state from the server
+def receive_game_state(sock):
     try:
-        print("Receiving game state")
-        game_state = client_socket.recv(BUFFER_SIZE).decode()
-        print(game_state)
-        return game_state
+        return sock.recv(BUFFER_SIZE).decode()
     except socket.error as e:
         print(f"Error receiving game state: {e}")
         return ""
-    
-# Parse the game state received from the server
+
+# Parsing the game state received from the server
 def parse_game_state(game_state):
     try:
+        print("Debug - Game State:", game_state)  # Debug print
         snake_data, snack_data = game_state.split('|')
         snake_positions = [tuple(map(int, pos.strip('()').split(','))) for pos in snake_data.split('*') if pos]
         snack_positions = [tuple(map(int, pos.strip('()').split(','))) for pos in snack_data.split('**') if pos]
         return snake_positions, snack_positions
     except Exception as e:
+        print("Debug - Game State:", game_state)  # Print game state on error
         print(f"Error parsing game state: {e}")
         return [], []
 
-# Draw the grid lines    
-def draw_grid():
+# Drawing functions
+def draw_grid(screen):
     for x in range(0, WIDTH, CELL_SIZE):
         pygame.draw.line(screen, GRID_COLOR, (x, 0), (x, HEIGHT))
     for y in range(0, HEIGHT, CELL_SIZE):
         pygame.draw.line(screen, GRID_COLOR, (0, y), (WIDTH, y))
 
-# Draw the snake and snacks
 def draw_snake_and_snacks(screen, snake_positions, snack_positions):
     for pos in snake_positions:
         pygame.draw.rect(screen, SNAKE_COLOR, (pos[0] * CELL_SIZE, pos[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE))
@@ -77,55 +89,52 @@ def draw_snake_and_snacks(screen, snake_positions, snack_positions):
 
 # Main function
 def main():
-    client_socket = connect_to_server()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    client_socket, client_private_key, server_public_key = connect_to_server()
+    
     running = True
     while running:
-
-        events = pygame.event.get()
-
-        if events != []:
-            
-            event = events[0] 
-
+        button_pressed = ""
+        for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-
-            if event.type == pygame.KEYDOWN:
+            elif event.type == pygame.KEYDOWN:
+                
                 if event.key == pygame.K_UP:
-                    send_command(client_socket, "up")
+                    button_pressed = "CONTROL:up"
                 elif event.key == pygame.K_DOWN:
-                    send_command(client_socket, "down")
+                    button_pressed = "CONTROL:down"
                 elif event.key == pygame.K_LEFT:
-                    send_command(client_socket, "left")
+                    button_pressed = "CONTROL:left"
                 elif event.key == pygame.K_RIGHT:
-                    send_command(client_socket, "right")
+                    button_pressed = "CONTROL:right"
                 elif event.key == pygame.K_r:
-                    send_command(client_socket, "reset")
+                    button_pressed = "CONTROL:reset"
                 elif event.key == pygame.K_q:
-                    send_command(client_socket, "quit")
-                    running = False
+                    button_pressed = "CONTROL:quit"
                 elif event.key == pygame.K_z:
-                    send_command(client_socket, "z")
+                    button_pressed = "CHAT:Z"
                 elif event.key == pygame.K_x:
-                    send_command(client_socket, "x")
+                    button_pressed  = "CHAT:X"
                 elif event.key == pygame.K_c:
-                    send_command(client_socket, "c")
-            else:
-                send_command(client_socket, "get")
-        else:
-            send_command(client_socket, "get") 
-        
+                    button_pressed = "CHAT:C"   
+        if len(button_pressed) == 0:
+            button_pressed = "CONTROL:get"
+
+        print("Debug - Button Pressed:", button_pressed)
+        send_command(client_socket, button_pressed, server_public_key)
+
+        # else:
+        #     send_command(client_socket, "CONTROL:get",server_public_key) 
+
+
         game_state = receive_game_state(client_socket)
-        print(game_state)
         snake_positions, snack_positions = parse_game_state(game_state)
 
-        # Clear the screen
-        screen.fill((0, 0, 0))  
-        draw_grid()
-        draw_snake_and_snacks(screen,snake_positions, snack_positions)
+        screen.fill((0, 0, 0))
+        draw_grid(screen)
+        draw_snake_and_snacks(screen, snake_positions, snack_positions)
         pygame.display.update()
-
-        # Delay to control update frequency and reduce CPU usage
         time.sleep(0.2)
 
     client_socket.close()

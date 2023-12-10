@@ -130,6 +130,7 @@ class SnakeGame:
     
     
     def add_player(self, user_id, color) : 
+        print("adding player {}".format(user_id))
         self.players[user_id] = snake(color, (10,10))
     
     def remove_player(self, user_id) :
