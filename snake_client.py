@@ -48,7 +48,6 @@ def connect_to_server():
 def send_command(sock, message, server_public_key):
     try:
         encrypted_message = rsa.encrypt(message.encode(), server_public_key)
-        print("Debug - Encrypted Message:",message, encrypted_message)  # Debug print
         sock.send(encrypted_message)
     except socket.error as e:
         print(f"Error sending command: {e}")
@@ -64,13 +63,12 @@ def receive_game_state(sock):
 # Parsing the game state received from the server
 def parse_game_state(game_state):
     try:
-        print("Debug - Game State:", game_state)  # Debug print
         snake_data, snack_data = game_state.split('|')
         snake_positions = [tuple(map(int, pos.strip('()').split(','))) for pos in snake_data.split('*') if pos]
         snack_positions = [tuple(map(int, pos.strip('()').split(','))) for pos in snack_data.split('**') if pos]
         return snake_positions, snack_positions
     except Exception as e:
-        print("Debug - Game State:", game_state)  # Print game state on error
+
         print(f"Error parsing game state: {e}")
         return [], []
 
@@ -112,21 +110,16 @@ def main():
                     button_pressed = "CONTROL:reset"
                 elif event.key == pygame.K_q:
                     button_pressed = "CONTROL:quit"
+                    running = False
                 elif event.key == pygame.K_z:
                     button_pressed = "CHAT:Z"
                 elif event.key == pygame.K_x:
                     button_pressed  = "CHAT:X"
                 elif event.key == pygame.K_c:
                     button_pressed = "CHAT:C"   
-        if len(button_pressed) == 0:
-            button_pressed = "CONTROL:get"
-
-        print("Debug - Button Pressed:", button_pressed)
+            if len(button_pressed) == 0:
+                send_command(client_socket, "CONTROL:get",server_public_key)
         send_command(client_socket, button_pressed, server_public_key)
-
-        # else:
-        #     send_command(client_socket, "CONTROL:get",server_public_key) 
-
 
         game_state = receive_game_state(client_socket)
         snake_positions, snack_positions = parse_game_state(game_state)
