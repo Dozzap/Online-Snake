@@ -117,8 +117,8 @@ def main():
                     button_pressed  = "CHAT:X"
                 elif event.key == pygame.K_c:
                     button_pressed = "CHAT:C"   
-            if len(button_pressed) == 0:
-                send_command(client_socket, "CONTROL:get",server_public_key)
+        if len(button_pressed) == 0:
+            button_pressed = "CONTROL:get"
         send_command(client_socket, button_pressed, server_public_key)
 
         game_state = receive_game_state(client_socket)
