@@ -92,10 +92,4 @@ snake.py           # Game logic and classes
 test.py            # Simple RSA encryption test
 ```
 
----
 
-Feel free to modify or expand this README as needed!
-
----
-
-Let me know if you want to add sections on contributing, license, or anything else!
