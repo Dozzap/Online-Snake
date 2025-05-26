@@ -5,7 +5,7 @@ import rsa
 message = "CONTROL:quit"
 
 # Generate RSA key pair
-(public_key, private_key) = rsa.newkeys(512)
+(public_key, private_key) = rsa.newkeys(2048)
 
 # encrypt the message
 encrypted_message = rsa.encrypt(message.encode(), public_key)
